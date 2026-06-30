@@ -8,8 +8,8 @@
 // ── Pin Definitions ESP32-C5 ─────────────────────────────────
 #define SDA_PIN   7
 #define SCL_PIN   6
-#define RX1_PIN   4   // coba balik: tadinya 4
-#define TX1_PIN   5   // coba balik: tadinya 5
+#define RX1_PIN   5   // coba balik: tadinya 4
+#define TX1_PIN   4   // coba balik: tadinya 5
 
 // ── Kredensial & Server ──────────────────────────────────────
 const char* ssid     = "MAIN MASS";
