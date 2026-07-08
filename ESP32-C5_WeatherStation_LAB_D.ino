@@ -13,7 +13,7 @@
 const char* ssid     = "WifiKamu";
 const char* password = "Passordnya";
 const char* host     = "url website";
-const String path    = "example:/3242432424/kirimd342ata/kirimdata6.php";
+const String path    = "example:/3242432424/kirimd342ata/kirimdata5.php";
 
 // Hardware 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
