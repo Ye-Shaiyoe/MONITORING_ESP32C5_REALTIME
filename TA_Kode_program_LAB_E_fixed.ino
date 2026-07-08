@@ -7,8 +7,8 @@
 
 const char* ssid = "SUML";
 const char* password = "kemendag27";
-const char* host = "percobaanta1hares.my.id";
-const String path = "/F01d3rD4t4k0D3L4BBPSUML/kirimdata/kirimdata7.php";
+const char* host = "tubpsuml.my.id";
+const String path = "/21313/32131/kirimdata/kirimdata7.php";
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 SoftwareSerial mySerial(14, 12); // RX, TX
