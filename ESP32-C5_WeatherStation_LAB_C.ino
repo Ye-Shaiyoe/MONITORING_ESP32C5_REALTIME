@@ -15,7 +15,7 @@
 const char* ssid     = "MAIN MASS";
 const char* password = "massaK46";
 const char* host     = "tubpsuml.my.id";
-const String path    = "/Lpath/path/kirimdata2.php";
+const String path    = "/Lpath/path/kirimdata4.php";
 
 // Hardware 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
