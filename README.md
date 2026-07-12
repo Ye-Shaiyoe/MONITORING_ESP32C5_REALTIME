@@ -45,3 +45,11 @@ Dan untuk yang ESP32-C5_WeatherStation_LAB_K46-FIX.ino
 * Example 
 ---
 <img width="765" height="456" alt="ESP32-C5-DevKitC-1_v1 1_callouts" src="https://github.com/user-attachments/assets/7438c2af-b896-48a2-b513-1ff92dce1e14" />
+
+### PIN
+
+|LCD|ESP43|
+|GND|GND|
+|VCC|5V|
+|SDA|GPIO8|
+|SCL|GPIO9|
