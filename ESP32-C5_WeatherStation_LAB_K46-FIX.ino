@@ -290,8 +290,12 @@ void setup() {
 
 void loop() {
   updateLCD();
+
   if (WiFi.status() != WL_CONNECTED) connectToWiFi();
+
   while (sensorSerial.available()) parseSensorData((uint8_t)sensorSerial.read());
+
   processIfReady();
+
   delay(2);
 }
