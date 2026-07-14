@@ -15,7 +15,7 @@
 const char*  ssid     = "MAIN MASS";
 const char*  password = "massaK46";
 const char*  host     = "id.rumah.web";
-const String path     = "/adadeh.php";
+const String path     = "/adadeh/lala.php";
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 HardwareSerial    sensorSerial(1);
