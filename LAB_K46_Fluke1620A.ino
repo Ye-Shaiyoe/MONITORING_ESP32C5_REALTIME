@@ -42,8 +42,8 @@
 // ─── Jaringan ─────────────────────────────────────────────────────────────────
 const char*  ssid     = "MAIN MASS";
 const char*  password = "massaK46";
-const char*  host     = "percobaanta1hares.my.id";
-const String path     = "/F01d3rD4t4k0D3L4BBPSUML/kirimdata/kirimdata5.php";
+const char*  host     = "web.my.id";
+const String path     = "/kemendag/indo/indo.php"; // ubah
 
 // ─── Hardware ─────────────────────────────────────────────────────────────────
 LiquidCrystal_I2C lcd(0x27, 16, 2);
