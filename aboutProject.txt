@@ -1,0 +1,511 @@
+
+DOKUMENTASI PROJECT
+Migrasi Sistem Weather Station
+Dari ESP8266 ke ESP32-C5
+LAB K46
+
+Disusun oleh:
+M. Yusuf Akram
+M. Rival
+Siswa PKL — SMK Alfalah
+
+2026
+
+Daftar Isi
+
+
+
+
+
+BAB 1 — Pendahuluan
+1.1 Latar Belakang
+Project LAB K46 merupakan pengembangan sistem weather station berbasis IoT yang membaca data sensor cuaca (suhu, kelembapan, dan tekanan udara) lalu mengirimkannya ke server secara real-time agar dapat dipantau melalui dashboard web. Pada tahap awal pengembangan, sistem ini menggunakan mikrokontroler ESP8266 sebagai otak dari perangkat, yang bertugas membaca data dari sensor MHB-382SD, menampilkannya pada layar LCD I2C, dan mengirimkan data tersebut ke server melalui jaringan WiFi.
+Seiring berjalannya kebutuhan laboratorium, muncul requirement baru agar perangkat dapat terhubung ke jaringan WiFi 5GHz, mengingat WiFi 5GHz menawarkan koneksi yang lebih stabil dan minim interferensi dibandingkan 2.4GHz, terutama di lingkungan dengan banyak perangkat WiFi lain. Karena ESP8266 secara hardware hanya mendukung WiFi 2.4GHz dan tidak dapat ditingkatkan ke 5GHz, maka diputuskan untuk melakukan migrasi mikrokontroler ke ESP32-C5 — chip terbaru dari Espressif yang mendukung WiFi 6 dual-band (2.4GHz dan 5GHz).
+Dokumen ini disusun untuk mendokumentasikan seluruh proses migrasi tersebut, mulai dari perbandingan teknis kedua chip, perubahan wiring hardware, perubahan kode program, hingga proses debugging yang dilalui selama pengembangan — agar dapat menjadi referensi bagi pengembangan project selanjutnya maupun bagi anggota tim yang melanjutkan project ini.
+1.2 Tujuan Project
+•Memigrasikan seluruh fungsi sistem weather station dari ESP8266 ke ESP32-C5 tanpa kehilangan fitur yang sudah ada.
+•Mengaktifkan koneksi WiFi 5GHz pada perangkat sesuai requirement laboratorium.
+•Memastikan pembacaan data sensor MHB-382SD tetap akurat setelah migrasi.
+•Memastikan data sensor dapat terkirim secara stabil ke server melalui protokol HTTPS.
+•Mendokumentasikan seluruh proses troubleshooting sebagai referensi pengembangan selanjutnya.
+
+BAB 2 — Perbandingan Mikrokontroler
+Sebelum membahas detail migrasi, perlu dipahami terlebih dahulu perbedaan mendasar antara ESP8266 (chip lama) dan ESP32-C5 (chip baru) yang digunakan pada project ini.
+2.1 ESP8266 (Chip Lama)
+ESP8266 adalah mikrokontroler WiFi berbiaya rendah yang dikembangkan oleh Espressif Systems dan dirilis pertama kali pada tahun 2014. Chip ini menggunakan prosesor Tensilica L106 32-bit single-core dengan kecepatan clock 80 MHz yang dapat di-overclock hingga 160 MHz. ESP8266 memiliki memori RAM sebesar 32KB untuk instruksi dan 80KB untuk data, serta mendukung flash memory eksternal mulai dari 512KB hingga 4MB tergantung modul yang digunakan.
+Dari sisi konektivitas, ESP8266 hanya mendukung WiFi 802.11 b/g/n pada frekuensi 2.4GHz saja, tanpa dukungan Bluetooth. Chip ini memiliki maksimal 17 pin GPIO yang sebagian besar multiplexed dengan fungsi lain, serta hanya memiliki 1 input ADC (Analog to Digital Converter). Karena keterbatasan tersebut, ESP8266 umumnya digunakan untuk project IoT sederhana yang tidak memerlukan banyak pin atau pemrosesan berat, seperti sensor node atau saklar pintar.
+Pada project ini, ESP8266 menggunakan SoftwareSerial untuk komunikasi tambahan dengan sensor MHB-382SD, karena hanya memiliki satu UART hardware yang biasanya sudah dipakai untuk Serial Monitor/debugging.
+2.2 ESP32-C5 (Chip Baru)
+ESP32-C5 adalah mikrokontroler generasi terbaru dari Espressif yang diumumkan sebagai chip RISC-V pertama di industri yang mendukung WiFi 6 dual-band, yaitu 2.4GHz dan 5GHz sekaligus dalam satu chip.
+Secara arsitektur, ESP32-C5 menggunakan prosesor RISC-V 32-bit single-core berkecepatan hingga 240 MHz, dilengkapi pula dengan low-power core terpisah yang dapat berjalan hingga 40 MHz untuk menangani tugas-tugas hemat daya saat sistem utama dalam keadaan sleep. Chip ini dilengkapi 384KB SRAM on-chip, 320KB ROM, serta mendukung PSRAM eksternal untuk kebutuhan memori yang lebih besar.
+Dari sisi GPIO, ESP32-C5 menyediakan hingga 29 pin GPIO yang dapat diprogram, jauh lebih banyak dibanding ESP8266. Selain WiFi 6 dual-band, ESP32-C5 juga mendukung Bluetooth 5 (LE) serta protokol IEEE 802.15.4 yang mencakup Zigbee dan Thread, menjadikannya pilihan yang fleksibel untuk berbagai skenario IoT modern, termasuk smart home hub dan gateway multi-protokol.
+Khusus untuk dukungan WiFi 5GHz, ESP32-C5 mendukung standar 802.11a/ac/ax pada pita 5GHz dengan bandwidth 20MHz untuk mode 802.11ax, di samping tetap mendukung 802.11b/g/n pada 2.4GHz untuk kompatibilitas mundur. Inilah alasan utama chip ini dipilih untuk menggantikan ESP8266 pada project LAB K46.
+2.3 Tabel Perbandingan Spesifikasi
+Spesifikasi	ESP8266	ESP32-C5
+Prosesor	Tensilica L106, 32-bit single-core	RISC-V 32-bit single-core + LP core
+Clock Speed	80–160 MHz	Hingga 240 MHz
+RAM	32KB + 80KB	384KB SRAM + dukungan PSRAM
+GPIO	17 pin (multiplexed)	Hingga 29 pin
+WiFi	802.11 b/g/n — 2.4GHz saja	WiFi 6, dual-band 2.4GHz & 5GHz
+Bluetooth	Tidak ada	Bluetooth 5 (LE)
+Protokol Lain	Tidak ada	IEEE 802.15.4 (Zigbee, Thread)
+UART Tambahan	Via SoftwareSerial (software-based)	HardwareSerial native (Serial1, dst)
+Rilis	2014	2025
+Tabel 2.1 — Perbandingan spesifikasi teknis ESP8266 dan ESP32-C5.
+BAB 3 — Perubahan Hardware / Wiring
+Migrasi dari ESP8266 ke ESP32-C5 mengharuskan seluruh wiring dipetakan ulang (remap), karena penomoran dan ketersediaan pin GPIO antara kedua board berbeda. Bagian ini menjelaskan perubahan wiring untuk dua komponen utama: LCD I2C dan sensor MHB-382SD.
+3.1 Wiring LCD I2C 16x2
+LCD I2C terhubung menggunakan 4 kabel: VCC, GND, SCL (clock), dan SDA (data). Pada percobaan awal, pin SDA dan SCL sempat dipasang di GPIO 7 dan GPIO 6 ESP32-C5. Namun setelah dilakukan pengujian menggunakan I2C scanner, ditemukan bahwa GPIO 6 dan GPIO 7 pada board ESP32-C5 yang digunakan tidak dapat berfungsi sebagai jalur I2C — LCD sama sekali tidak terdeteksi meski seluruh sambungan kabel maupun solderan VCC/GND dalam kondisi baik.
+Sebagai solusi, jalur SDA dan SCL kemudian dipindahkan ke GPIO 8 dan GPIO 9, yang setelah diuji ulang berhasil mendeteksi LCD dengan normal. Detail proses debugging masalah ini dibahas lebih lanjut pada Bab 5.
+Kabel	Fungsi	ESP8266 (Lama)	ESP32-C5 (Final)
+Hijau	SCL	D1 (GPIO5)	GPIO 9
+Biru	SDA	D2 (GPIO4)	GPIO 8
+Putih	VCC	VIN	5V
+Hitam	GND	GND	GND
+Tabel 3.1 — Perubahan wiring LCD I2C dari ESP8266 ke ESP32-C5.
+Catatan: kabel VCC LCD dipasang ke pin 5V (bukan 3V3) karena modul LCD I2C yang digunakan toleran terhadap tegangan 5V, sehingga pin 3V3 pada ESP32-C5 — yang hanya tersedia satu buah — dapat dialokasikan penuh untuk sensor MHB-382SD.
+3.2 Wiring Sensor MHB-382SD
+Sensor MHB-382SD bersifat one-way, artinya sensor hanya mengirim data (TX) tanpa menerima perintah apapun dari mikrokontroler. Oleh karena itu, hanya jalur TX sensor yang perlu disambungkan ke pin RX mikrokontroler, selain VCC dan GND.
+Kabel	Fungsi	ESP8266 (Lama)	ESP32-C5 (Final)
+Merah	TX Sensor → RX MCU	D5 (GPIO14)	GPIO 4
+Putih	VCC	3V3	3V3
+Tembaga/shield	GND	GND	GND
+Tabel 3.2 — Perubahan wiring sensor MHB-382SD dari ESP8266 ke ESP32-C5.
+Pin TX sensor (kabel merah) dihubungkan ke GPIO 4 ESP32-C5 yang dikonfigurasi sebagai RX pada HardwareSerial1, sedangkan pin TX pada HardwareSerial1 (GPIO 5) tidak digunakan secara fisik karena sensor tidak menerima data apapun.
+
+
+
+3.3 Ringkasan Seluruh Perubahan Pin
+Fungsi	ESP8266 (Lama)	ESP32-C5 (Final)
+SCL LCD I2C	GPIO 5 (D1)	GPIO 9
+SDA LCD I2C	GPIO 4 (D2)	GPIO 8
+RX Sensor MHB-382SD	GPIO 14 (D5)	GPIO 4
+TX Sensor (tidak terpakai)	—	GPIO 5
+Tabel 3.3 — Ringkasan seluruh perubahan pin dari ESP8266 ke ESP32-C5.
+
+BAB 4 — Perubahan Software / Library
+4.1 Perubahan Library
+Karena arsitektur ESP32-C5 berbeda dari ESP8266, sebagian besar library yang digunakan pada kode lama tidak kompatibel dan harus diganti dengan library bawaan ESP32.
+ESP8266 (Lama)	ESP32-C5 (Baru)
+SoftwareSerial.h	Dihapus — diganti HardwareSerial bawaan
+ESP8266WiFi.h	WiFi.h
+ESP8266HTTPClient.h	HTTPClient.h
+WiFiClientSecureBearSSL.h	WiFiClientSecure.h
+Tabel 4.1 — Perubahan library dari ESP8266 ke ESP32-C5.
+4.2 Perubahan Fungsi Inti
+Selain library, beberapa pemanggilan fungsi juga berubah karena perbedaan API antara core ESP8266 dan ESP32:
+•SoftwareSerial mySerial(RX, TX) diganti menjadi HardwareSerial sensorSerial(1), dengan inisialisasi sensorSerial.begin(9600, SERIAL_8N1, RX1_PIN, TX1_PIN) yang memungkinkan penentuan pin RX/TX secara eksplisit.
+•Wire.begin() tanpa parameter pada ESP8266 diganti menjadi Wire.begin(SDA_PIN, SCL_PIN) pada ESP32, karena ESP32 memerlukan penentuan pin I2C secara eksplisit dan tidak memiliki pin I2C default yang tetap.
+•WiFi.hostname("LAB_K46") pada ESP8266 diganti menjadi WiFi.setHostname("LAB_K46") pada ESP32, mengikuti penamaan fungsi API yang berbeda.
+4.3 Koneksi WiFi 5GHz via BSSID Scanning
+Salah satu tantangan utama dalam migrasi ini adalah memastikan ESP32-C5 terhubung ke jaringan WiFi pada pita 5GHz, bukan 2.4GHz, mengingat kedua pita tersebut umumnya menggunakan SSID yang sama pada router dual-band. Fungsi WiFi.band() yang awalnya dicoba ternyata belum tersedia pada versi board package ESP32 yang digunakan, sehingga pendekatan yang dipakai adalah BSSID scanning.
+Cara kerjanya: sebelum melakukan koneksi, ESP32-C5 terlebih dahulu melakukan scanning seluruh jaringan WiFi yang tersedia menggunakan WiFi.scanNetworks(). Dari hasil scan, sistem mencari SSID yang sesuai dengan kredensial yang dikonfigurasi dan memiliki nomor channel 36 ke atas — karena pada standar WiFi, channel 36 hingga 165 secara eksklusif digunakan oleh pita 5GHz, sedangkan channel 1 hingga 13 digunakan oleh pita 2.4GHz. Setelah BSSID (alamat fisik access point) pada channel 5GHz ditemukan, ESP32-C5 melakukan koneksi langsung ke BSSID tersebut menggunakan WiFi.begin(ssid, password, channel, bssid), sehingga dipastikan koneksi terjadi pada pita 5GHz.
+Apabila jaringan 5GHz tidak ditemukan dalam hasil scan, sistem akan melakukan fallback dengan mencoba koneksi normal tanpa menentukan band tertentu, agar perangkat tetap dapat terhubung meski pada kondisi tidak ideal.
+4.4 Auto-Reinit LCD
+Selama pengujian, ditemukan bahwa tampilan LCD dapat mengalami glitch atau freeze, terutama setelah proses scanning WiFi 5GHz yang cukup berat bagi radio ESP32-C5, maupun akibat gangguan fisik seperti kabel USB yang tersenggol. Untuk mengatasi hal ini, ditambahkan dua mekanisme pemulihan otomatis:
+•Reinit paksa pada bus I2C tepat setelah proses koneksi WiFi selesai, menggunakan Wire.end() dilanjutkan Wire.begin() ulang, sebelum LCD dibersihkan dan ditampilkan kembali.
+•Reinit berkala setiap 60 detik selama program berjalan (loop), sehingga apabila LCD mengalami hang di tengah operasi, sistem akan otomatis pulih dalam waktu maksimal satu menit tanpa memerlukan restart manual.
+4.5 Perbaikan Parsing Data Sensor
+Bagian ini menjelaskan permasalahan paling kompleks yang ditemukan selama migrasi: data suhu, kelembapan, dan tekanan yang terbaca saling tertukar posisi pada pembacaan tertentu.
+4.5.1 Identifikasi Akar Masalah
+Sensor MHB-382SD mengirimkan data dalam tiga paket berurutan untuk setiap siklus pembacaan: paket kelembapan (RH), paket suhu (Temperature), dan paket tekanan (Barometer), masing-masing diawali byte penanda 0x02. Kode program awal mengasumsikan urutan paket tersebut selalu konsisten — paket pertama adalah RH, paket kedua Temperature, dan paket ketiga Barometer — kemudian menempatkan data ke variabel yang sesuai berdasarkan urutan tersebut.
+Pada praktiknya, urutan ini tidak selalu konsisten. Apabila program ESP32-C5 baru menyala atau bus serial sempat mengalami noise, parser dapat mulai membaca dari paket yang bukan RH terlebih dahulu, sehingga seluruh data pada siklus tersebut bergeser satu posisi — data suhu tertukar dengan tekanan, atau kelembapan tertukar dengan suhu.
+4.5.2 Solusi: Identifikasi Paket Berbasis Kode Satuan
+Setelah dianalisis lebih lanjut melalui pengujian data mentah (raw bytes) yang diterima dari sensor, ditemukan bahwa empat byte pertama pada setiap paket sebenarnya berisi kode satuan numerik yang dikirim oleh sensor itu sendiri sebagai identitas paket — bukan posisi yang harus ditebak. Berdasarkan pengujian, kode tersebut secara konsisten menghasilkan sisa modulo terkecil terhadap angka dasar berikut: 4100 untuk kelembapan (RH), 4200 untuk suhu (Temperature), dan 4300 untuk tekanan (Barometer).
+Solusi yang diterapkan adalah mengganti logika identifikasi paket dari berbasis posisi/urutan menjadi berbasis kode satuan tersebut. Setiap paket yang masuk dihitung sisa modulonya terhadap ketiga angka dasar, kemudian paket diklasifikasikan ke field yang memiliki sisa modulo terkecil. Dengan cara ini, identifikasi data tidak lagi bergantung pada paket mana yang datang lebih dulu.
+Sebagai pelengkap, sistem flag tiga variabel (gotRh, gotTemp, gotBar) ditambahkan agar proses perhitungan dan pengiriman data ke server hanya dijalankan apabila ketiga jenis paket telah benar-benar lengkap diterima dalam satu siklus, bukan bergantung pada satu paket spesifik datang di posisi tertentu.
+4.5.3 Perbaikan Guard Pemrosesan Berulang
+Ditemukan pula permasalahan pada logika asli di mana kondisi pemrosesan paket (i >= 14) dapat ter-trigger berulang kali oleh byte-byte sisa atau noise yang masuk sebelum penanda byte 0x02 berikutnya muncul, menyebabkan buffer data tertimpa oleh data yang tidak valid. Perbaikan dilakukan dengan mengubah kondisi tersebut menjadi pemeriksaan yang ketat (i == 14), sehingga proses identifikasi paket hanya dijalankan tepat satu kali per siklus 14-byte, dan byte-byte tambahan setelahnya diabaikan hingga penanda paket baru ditemukan.
+4.6 Penanganan HTTP Timeout
+Pada pengujian pengiriman data ke server, sesekali ditemukan error read Timeout meskipun koneksi WiFi dalam keadaan baik. Hal ini disebabkan oleh nilai timeout default pada HTTPClient ESP32 yang hanya 5 detik, sementara respons dari server terkadang membutuhkan waktu lebih lama, terutama saat koneksi internet melalui hotspot tidak stabil. Sebagai perbaikan, nilai timeout diperpanjang secara eksplisit menjadi 10 detik menggunakan http.setTimeout(10000) sebelum permintaan HTTP dikirim.
+
+BAB 5 — Proses Debugging dan Troubleshooting
+Bagian ini mendokumentasikan secara kronologis permasalahan yang ditemukan selama proses migrasi beserta solusi yang diterapkan, sebagai referensi apabila permasalahan serupa muncul kembali di kemudian hari.
+5.1 Port COM Tidak Terdeteksi
+Permasalahan: ESP32-C5 tidak muncul sebagai port COM di Windows Device Manager maupun Arduino IDE, meskipun LED indikator pada board menyala dan perangkat dapat mengisi daya HP saat dihubungkan.
+Penyebab: kabel USB yang digunakan bersifat charge-only, yaitu hanya memiliki jalur daya tanpa jalur data, sehingga komputer tidak dapat mengenali board sebagai perangkat serial.
+Solusi: mengganti kabel USB dengan kabel yang secara eksplisit mendukung transfer data (data cable / sync & charge cable), bukan sekadar kabel pengisi daya.
+5.2 LCD Glitch dan Freeze
+Permasalahan: tampilan LCD mengalami glitch saat program berjalan dalam waktu lama, dan kadang freeze total menampilkan layar kosong setelah USB tersenggol atau setelah proses scanning WiFi selesai.
+Penyebab: pembaruan tampilan LCD yang dipanggil setiap iterasi loop tanpa jeda menyebabkan bus I2C kewalahan; selain itu proses scanning WiFi 5GHz yang berat dapat menyebabkan gangguan sesaat pada bus I2C.
+Solusi: pembaruan LCD dibatasi menggunakan timer (setiap 500 milidetik) agar tidak dipanggil berlebihan, ditambah mekanisme reinit otomatis pada bus I2C setelah proses WiFi scanning, serta reinit berkala setiap 60 detik sebagai pengaman tambahan.
+5.3 GPIO 6 dan GPIO 7 Tidak Berfungsi untuk I2C
+Permasalahan: setelah perbaikan timer LCD pada poin 5.2 tetap tidak menyelesaikan masalah sepenuhnya, dilakukan pengujian menggunakan sketch I2C scanner sederhana yang hasilnya tidak mendeteksi perangkat apapun, padahal seluruh sambungan kabel dan solderan VCC/GND telah diperiksa dan dalam kondisi baik.
+Penyebab: pin GPIO 6 dan GPIO 7 pada board ESP32-C5 yang digunakan tidak dapat difungsikan sebagai jalur I2C, kemungkinan karena pin tersebut digunakan secara internal oleh sistem (strapping pin) pada varian board tersebut.
+Solusi: jalur SDA dan SCL dipindahkan ke GPIO 8 dan GPIO 9, yang setelah diuji ulang dengan I2C scanner langsung berhasil mendeteksi LCD.
+5.4 Data Sensor Tertukar Antar Field
+Permasalahan: nilai suhu, kelembapan, dan tekanan yang tertampil di Serial Monitor sering tertukar posisi — misalnya nilai tekanan yang sebenarnya muncul di posisi suhu, atau sebaliknya — menyebabkan data tidak lolos validasi range dan gagal terkirim ke server.
+Penyebab: parser data sensor mengasumsikan urutan paket selalu tetap (RH → Temperature → Barometer), padahal pada kondisi tertentu (misalnya saat program baru menyala di tengah siklus pengiriman sensor) urutan tersebut dapat bergeser.
+Solusi: sebagaimana dijelaskan pada Bab 4.5, identifikasi jenis paket diubah dari berbasis posisi menjadi berbasis kode satuan yang dikirim sensor itu sendiri, dilengkapi sistem flag untuk memastikan kalkulasi hanya berjalan saat ketiga jenis paket telah lengkap.
+5.5 HTTP Read Timeout
+Permasalahan: sebagian permintaan pengiriman data ke server gagal dengan pesan error read Timeout, meskipun data yang dikirim valid dan koneksi WiFi dalam keadaan terhubung.
+Penyebab: nilai timeout default HTTPClient ESP32 yang hanya 5 detik tidak selalu cukup, terutama saat kondisi jaringan melalui hotspot HP sedang tidak stabil.
+Solusi: nilai timeout diperpanjang secara eksplisit menjadi 10 detik.
+
+BAB 6 — Hasil dan Pengujian
+Setelah seluruh perbaikan diterapkan, dilakukan pengujian end-to-end terhadap sistem secara menyeluruh, mencakup koneksi WiFi 5GHz, pembacaan sensor, tampilan LCD, hingga pengiriman data ke server.
+6.1 Status Pengujian
+Komponen	Status	Catatan
+Koneksi WiFi 5GHz	Berhasil	Terhubung via BSSID scan pada channel 149
+LCD I2C	Berhasil	Stabil setelah dipindah ke GPIO 8/9
+Pembacaan Sensor MHB-382SD	Berhasil	Identifikasi paket berbasis kode satuan
+Pengiriman Data ke Server (HTTPS)	Berhasil	Data tersimpan dan tampil di dashboard web
+Tabel 6.1 — Ringkasan status pengujian akhir sistem.
+6.2 Contoh Data yang Berhasil Terkirim
+Berikut contoh respons server saat data berhasil diterima dan disimpan ke database, sebagaimana tercatat pada Serial Monitor selama pengujian:
+[Sensor] Suhu: 23.5 C | Kelembapan: 50.9% | Tekanan: 929.1 hPa
+[HTTP] Kirim ke: https://percobaanta1hares.my.id/.../kirimdata6.php?suhu=23.5&kelembapan=50.9&tekanan=929.1
+[HTTP] Response: Berhasil disimpan
+
+BAB 7 — Deployment ke Lab Lain
+Seluruh hardware, wiring, dan kode program pada project ini dirancang identik untuk semua lab di gedung yang sama. Satu-satunya perbedaan antar lab adalah nomor endpoint server yang digunakan untuk menyimpan data ke database yang berbeda. Ini memudahkan replikasi: pasang hardware yang sama, upload kode yang sama, cukup ganti satu baris kode.
+7.1 Daftar Endpoint per Lab
+Lab	Endpoint Server	Status
+Lab A	/F01d3rD4t4k0D3L4BBPSUML/kirimdata/kirimdata1.php	Belum deploy
+Lab B	/F01d3rD4t4k0D3L4BBPSUML/kirimdata/kirimdata2.php	Belum deploy
+Lab C	/F01d3rD4t4k0D3L4BBPSUML/kirimdata/kirimdata3.php	Belum deploy
+Lab D	/F01d3rD4t4k0D3L4BBPSUML/kirimdata/kirimdata4.php	Belum deploy
+Lab E	/F01d3rD4t4k0D3L4BBPSUML/kirimdata/kirimdata5.php	Belum deploy
+Lab K46	/F01d3rD4t4k0D3L4BBPSUML/kirimdata/kirimdata6.php	SUDAH JALAN ✅
+Tabel 7.1 — Daftar endpoint server per lab. Status dapat diperbarui seiring deployment.
+7.2 Cara Replikasi ke Lab Lain
+Karena hardware, wiring, dan seluruh logika kode identik, proses deploy ke lab baru hanya membutuhkan langkah berikut:
+1.Siapkan hardware yang sama: ESP32-C5 NodeMCU, LCD I2C 16x2 (alamat 0x27), sensor MHB-382SD.
+2.Sambungkan kabel persis seperti Tabel 3.3 — tidak ada yang berbeda antar lab.
+3.Buka file ESP32-C5_WeatherStation_LAB_K46-FIX.ino di Arduino IDE.
+4.Cari baris berikut di bagian atas kode, lalu ganti nomor endpoint sesuai lab tujuan:
+
+// LAB K46 (endpoint yang sedang aktif)
+const String path = "/F01d3rD4t4k0D3L4BBPSUML/kirimdata/kirimdata6.php";
+ 
+// Contoh untuk Lab A — ganti angka 6 menjadi 1:
+const String path = "/F01d3rD4t4k0D3L4BBPSUML/kirimdata/kirimdata1.php";
+
+5.Upload ke board ESP32-C5 yang dipasang di lab tujuan.
+6.Pastikan ESP32-C5 terhubung ke WiFi yang sama dan data muncul di dashboard web.
+Catatan: SSID dan password WiFi tidak perlu diubah selama semua lab menggunakan jaringan WiFi yang sama (MAIN MASS). Apabila ada lab yang menggunakan router berbeda, perbarui juga variabel ssid dan password di kode.
+
+BAB 8 — Kesimpulan
+Proses migrasi sistem weather station LAB K46 dari ESP8266 ke ESP32-C5 berhasil dilakukan dengan seluruh fungsi utama berjalan sebagaimana mestinya: koneksi WiFi 5GHz, pembacaan sensor MHB-382SD, tampilan data pada LCD I2C, hingga pengiriman data secara real-time ke server melalui protokol HTTPS.
+Beberapa pelajaran penting yang dapat diambil dari proses migrasi ini antara lain pentingnya verifikasi langsung terhadap data mentah (raw bytes) saat melakukan debugging komunikasi serial, ketelitian dalam memilih pin GPIO pada board baru karena tidak semua pin dapat berfungsi sama seperti dokumentasi umum, serta pentingnya menambahkan mekanisme pemulihan otomatis (auto-recovery) pada sistem yang berjalan dalam waktu lama tanpa pengawasan langsung.
+Dokumentasi ini diharapkan dapat menjadi referensi bagi pengembangan lanjutan project LAB K46, maupun bagi project serupa yang memerlukan migrasi mikrokontroler di kemudian hari.
+
+
+Lampiran — Kode Program Lengkap
+Kode program lengkap ESP32-C5 Weather Station LAB K46 setelah seluruh perbaikan diterapkan, disertakan sebagai file terpisah pada folder project: ESP32-C5_WeatherStation_LAB_K46-FIX.ino
+
+```
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <HTTPClient.h>
+#include <esp_mac.h>
+
+// Pin 
+#define SDA_PIN  8
+#define SCL_PIN  9
+#define RX1_PIN  4
+#define TX1_PIN  5
+// Jaringan 
+const char* ssid     = "MAIN MASS";
+const char* password = "massaK46";
+const char* host     = "percobaanta1hares.my.id";
+const String path    = "/F01d3rD4t4k0D3L4BBPSUML/kirimdata/kirimdata6.php";
+// Hardware 
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+HardwareSerial sensorSerial(1);
+//  Variabel Sensor 
+typedef struct {
+  char satuan[5];   // 4 char + null
+  char nilai[12];   // 11 char + null
+  bool valid;
+} PaketSensor;
+// Buffer umum — 1 paket aktif saat ini
+PaketSensor bufRH   = {0};
+PaketSensor bufTemp = {0};
+PaketSensor bufBar  = {0};
+// State parser
+typedef enum { WAIT_STX, READ_SATUAN, READ_NILAI } ParseState;
+ParseState parseState = WAIT_STX;
+int        parseIdx   = 0;
+char       tmpSatuan[5] = {0};
+char       tmpNilai[12] = {0}
+float kelembapan = 0.0, suhu = 0.0, tekanan = 0.0;
+bool  dataReady  = false;
+// ─── MAC Address 
+String macSTA = "";
+String macAP  = "";
+String macBT  = "";
+unsigned long lastLCD         = 0;
+unsigned long lastReinit      = 0;
+unsigned long lastMACShow     = 0;
+bool          showMAC         = true;
+const unsigned long LCD_INTERVAL      = 500;
+const unsigned long REINIT_INTERVAL   = 60000;
+const unsigned long MAC_SHOW_DURATION = 6000;
+byte wifiIcon[8]    = {0x1C, 0x0A, 0x11, 0x00, 0x04, 0x00, 0x04, 0x00};
+byte barLevel[6][8] = {
+  {0},
+  {0, 0, 0, 0, 0, 0, 0, 0x1F},
+  {0, 0, 0, 0, 0, 0, 0x1F, 0x1F},
+  {0, 0, 0, 0, 0, 0x1F, 0x1F, 0x1F},
+  {0, 0, 0, 0, 0x1F, 0x1F, 0x1F, 0x1F},
+  {0, 0, 0, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F}
+};
+void initLCD() {
+  lcd.init();
+  lcd.backlight();
+  lcd.createChar(0, wifiIcon);
+  for (int j = 1; j <= 5; j++) lcd.createChar(j, barLevel[j]);
+  lcd.createChar(6, barLevel[0]);
+}
+void readMACAddress() {
+  uint8_t mac[6];
+  char    buf[18];
+  esp_efuse_mac_get_default(mac);
+  snprintf(buf, sizeof(buf), "%02X:%02X:%02X:%02X:%02X:%02X",
+           mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  macSTA = String(buf);
+  uint8_t macAP_raw[6]; memcpy(macAP_raw, mac, 6); macAP_raw[5] += 1;
+  snprintf(buf, sizeof(buf), "%02X:%02X:%02X:%02X:%02X:%02X",
+           macAP_raw[0], macAP_raw[1], macAP_raw[2],
+           macAP_raw[3], macAP_raw[4], macAP_raw[5]);
+  macAP = String(buf);
+
+  uint8_t macBT_raw[6]; memcpy(macBT_raw, mac, 6); macBT_raw[5] += 2;
+  snprintf(buf, sizeof(buf), "%02X:%02X:%02X:%02X:%02X:%02X",
+           macBT_raw[0], macBT_raw[1], macBT_raw[2],
+           macBT_raw[3], macBT_raw[4], macBT_raw[5]);
+  macBT = String(buf);
+  Serial.println();
+  Serial.println("========================================");
+  Serial.println("[MAC] WiFi STA  : " + macSTA);
+  Serial.println("[MAC] WiFi AP   : " + macAP);
+  Serial.println("[MAC] Bluetooth : " + macBT);
+  Serial.println("========================================");
+  Serial.println();
+}
+void showMACOnLCD() {
+  lcd.setCursor(0, 0);
+  lcd.print("STA:");
+  lcd.print(macSTA.substring(0, 12));  // "AA:BB:CC:DD:"
+  lcd.setCursor(0, 1);
+  lcd.print("    ");
+  lcd.print(macSTA.substring(12));     // "EE:FF"
+  lcd.print("       ");
+}
+void connectToWiFi() {
+  WiFi.disconnect(true);
+  delay(100);
+  Serial.println("[WiFi] Scanning jaringan 5GHz...");
+  int n = WiFi.scanNetworks();
+  uint8_t bssid5G[6] = {0};
+  int     channel5G  = 0;
+  bool    found5G    = false;
+  for (int x = 0; x < n; x++) {
+    if (WiFi.SSID(x) == ssid && WiFi.channel(x) >= 36) {
+      memcpy(bssid5G, WiFi.BSSID(x), 6);
+      channel5G = WiFi.channel(x);
+      found5G   = true;
+      Serial.printf("[WiFi] Ketemu 5GHz — CH:%d BSSID:%02X:%02X:%02X:%02X:%02X:%02X\n",
+                    channel5G,
+                    bssid5G[0], bssid5G[1], bssid5G[2],
+                    bssid5G[3], bssid5G[4], bssid5G[5]);
+      break;
+    }
+  }
+  WiFi.scanDelete();
+  if (found5G) WiFi.begin(ssid, password, channel5G, bssid5G);
+  else {
+    Serial.println("[WiFi] 5GHz tidak ditemukan, konek biasa...");
+    WiFi.begin(ssid, password);
+  }
+  unsigned long start = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - start < 30000) delay(500);
+}
+
+void sendToServer() {
+  if (WiFi.status() != WL_CONNECTED) return;
+  WiFiClientSecure client;
+  client.setInsecure();
+  HTTPClient http;
+  String url = "https://" + String(host) + path +
+               "?suhu="       + String(suhu, 1) +
+               "&kelembapan=" + String(kelembapan, 1) +
+               "&tekanan="    + String(tekanan, 1);
+  Serial.println("[HTTP] Kirim ke: " + url);
+  http.begin(client, url);
+  int httpCode = http.GET();
+  if (httpCode > 0) Serial.println("[HTTP] Response: " + http.getString());
+  else              Serial.println("[HTTP] Error: " + http.errorToString(httpCode));
+  http.end();
+}
+void updateLCD() {
+  if (millis() - lastLCD < LCD_INTERVAL) return;
+  lastLCD = millis();
+  if (showMAC) {
+    if (millis() - lastMACShow < MAC_SHOW_DURATION) {
+      showMACOnLCD();
+      return;
+    } else {
+      showMAC = false;
+      lcd.clear();
+    }
+  }
+  if (WiFi.status() == WL_CONNECTED) {
+    int rssi = WiFi.RSSI();
+    int bars = constrain(map(rssi, -90, -30, 0, 5), 0, 5);
+    lcd.setCursor(0, 0);
+    lcd.write((uint8_t)0);
+    lcd.print(" ");
+    for (int k = 1; k <= 5; k++) lcd.write((uint8_t)(k <= bars ? k : 6));
+    lcd.print(rssi);
+    lcd.print("dBm  ");
+    lcd.setCursor(0, 1);
+    lcd.print(kelembapan, 1); lcd.print("|");
+    lcd.print(suhu,       1); lcd.print("|");
+    lcd.print(tekanan,    1);
+    lcd.print("   ");
+  } else {
+    lcd.setCursor(0, 0); lcd.print("WiFi: TERPUTUS  ");
+    lcd.setCursor(0, 1); lcd.print("Reconnect...    ");
+  }
+}
+float parseNilai(char* s) {
+  char buf[12];
+  strncpy(buf, s, 11);
+  buf[11] = '\0';
+  long raw = atol(buf);
+  int  pol = (int)(raw / 1000000000L);
+  int  dp  = (int)((raw / 100000000L) % 10);
+  long num = raw % 100000000L;
+  float val = (float)num / powf(10.0f, (float)dp);
+  if (pol) val *= -1.0f;
+  return val;
+}
+// 41xx = Kelembapan, 42xx = Suhu, 43xx = Tekanan
+void dispatchPaket(char* satuan, char* nilai) {
+  int kode = atoi(satuan);
+  // Dua digit pertama
+  int jenis = kode / 100;  // 41 = RH, 42 = Temp, 43 = Bar
+  PaketSensor* target = nullptr;
+  if      (jenis == 41) target = &bufRH;
+  else if (jenis == 42) target = &bufTemp;
+  else if (jenis == 43) target = &bufBar;
+  else {
+    Serial.printf("[Parser] Kode satuan tidak dikenal: %s\n", satuan);
+    return;
+  }
+  strncpy(target->satuan, satuan, 4); target->satuan[4] = '\0';
+  strncpy(target->nilai,  nilai,  11); target->nilai[11] = '\0';
+  target->valid = true;
+  if (bufRH.valid && bufTemp.valid && bufBar.valid) {
+    dataReady = true;
+  }
+}
+void parseSensorData(uint8_t rc) {
+  switch (parseState) {
+    case WAIT_STX:
+      if (rc == 0x02) {
+        parseIdx   = 0;
+        parseState = READ_SATUAN;
+        memset(tmpSatuan, 0, sizeof(tmpSatuan));
+        memset(tmpNilai,  0, sizeof(tmpNilai));
+      }
+      break;
+    case READ_SATUAN:
+      tmpSatuan[parseIdx++] = (char)rc;
+      if (parseIdx == 4) {
+        tmpSatuan[4] = '\0';
+        parseIdx     = 0;
+        parseState   = READ_NILAI;
+      }
+      break;
+    case READ_NILAI:
+      tmpNilai[parseIdx++] = (char)rc;
+      if (parseIdx == 11) {
+        tmpNilai[11] = '\0';
+        dispatchPaket(tmpSatuan, tmpNilai);
+        parseIdx   = 0;
+        parseState = WAIT_STX;
+      }
+      break;
+  }
+}
+void processIfReady() {
+  if (!dataReady) return;
+  dataReady = false;
+  kelembapan = parseNilai(bufRH.nilai);
+  suhu       = parseNilai(bufTemp.nilai);
+  tekanan    = parseNilai(bufBar.nilai);
+  Serial.printf("[Sensor] Suhu: %.1f C | Kelembapan: %.1f%% | Tekanan: %.1f hPa\n",
+                suhu, kelembapan, tekanan);
+  Serial.printf("[Debug]  RH  sat:%s val:%s → %.1f\n", bufRH.satuan,   bufRH.nilai,   kelembapan);
+  Serial.printf("[Debug]  Tmp sat:%s val:%s → %.1f\n", bufTemp.satuan, bufTemp.nilai,  suhu);
+  Serial.printf("[Debug]  Bar sat:%s val:%s → %.1f\n", bufBar.satuan,  bufBar.nilai,   tekanan);
+  if (suhu       >= 10  && suhu       <= 35  &&
+      kelembapan >= 35  && kelembapan <= 90  &&
+      tekanan    >= 800 && tekanan    <= 1100) {
+    sendToServer();
+  } else {
+    Serial.println("[Filter] Data di luar range, tidak dikirim.");
+  }
+ // Reset buffer untuk siklus berikutnya
+  memset(&bufRH,   0, sizeof(bufRH));
+  memset(&bufTemp, 0, sizeof(bufTemp));
+  memset(&bufBar,  0, sizeof(bufBar));
+}
+void setup() {
+  Serial.begin(115200);
+  unsigned long t = millis();
+  while (!Serial && millis() - t < 3000) delay(10);
+  delay(200);
+  Wire.begin(SDA_PIN, SCL_PIN);
+  initLCD();
+  sensorSerial.begin(9600, SERIAL_8N1, RX1_PIN, TX1_PIN);
+  WiFi.mode(WIFI_STA);
+  WiFi.setHostname("LAB_K46");
+  readMACAddress();
+  lastMACShow = millis();
+  showMAC     = true;
+  showMACOnLCD();
+  delay(1000);
+  lcd.clear();
+  lcd.setCursor(0, 0); lcd.print("Scanning 5GHz...");
+  lcd.setCursor(0, 1); lcd.print("Tunggu...       ");
+  connectToWiFi();
+  Wire.end(); delay(50);
+  Wire.begin(SDA_PIN, SCL_PIN); delay(50);
+  initLCD();
+  lcd.clear();
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("[WiFi] Terhubung : " + WiFi.localIP().toString());
+    Serial.println("[WiFi] Channel   : " + String(WiFi.channel()));
+    Serial.println("[WiFi] RSSI      : " + String(WiFi.RSSI()) + " dBm");
+    Serial.println("[MAC]  STA       : " + macSTA);
+  } else {
+    Serial.println("[WiFi] Gagal konek");
+  }
+  lastMACShow = millis();
+  showMAC     = true;
+  showMACOnLCD();
+}
+
+void loop() {
+  if (millis() - lastReinit >= REINIT_INTERVAL) {
+    lastReinit = millis();
+    initLCD();
+    Serial.println("[LCD] Reinit selesai");
+  }
+  updateLCD();
+  if (WiFi.status() != WL_CONNECTED) connectToWiFi();
+  while (sensorSerial.available()) {
+    parseSensorData((uint8_t)sensorSerial.read());
+  }
+  processIfReady();
+  delay(2);
+}
+
+```
+
