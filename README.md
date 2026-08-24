@@ -206,12 +206,12 @@ Perangkat keras dan skema wiring dirancang **100% identik** untuk seluruh ruanga
 
 | Laboratorium | File Sketch | Endpoint Server Target | Status |
 | :--- | :--- | :--- | :--- |
-| **Lab A** | `ESP32-C5_WeatherStation_LAB_A.ino` | `/F01d3rD4t4k0D3L4BBPSUML/kirimdata/kirimdata1.php` | Siap Deploy |
-| **Lab B** | `ESP32-C5_WeatherStation_LAB_B.ino` | `/F01d3rD4t4k0D3L4BBPSUML/kirimdata/kirimdata2.php` | Siap Deploy |
-| **Lab C** | `ESP32-C5_WeatherStation_LAB_C.ino` | `/F01d3rD4t4k0D3L4BBPSUML/kirimdata/kirimdata3.php` | Siap Deploy |
-| **Lab D** | `ESP32-C5_WeatherStation_LAB_D.ino` | `/F01d3rD4t4k0D3L4BBPSUML/kirimdata/kirimdata4.php` | Siap Deploy |
-| **Lab E** | `ESP32-C5_WeatherStation_LAB_E.ino` | `/F01d3rD4t4k0D3L4BBPSUML/kirimdata/kirimdata5.php` | Siap Deploy |
-| **Lab K46** | `ESP32-C5_WeatherStation_LAB_K46-FIX.ino` | `/F01d3rD4t4k0D3L4BBPSUML/kirimdata/kirimdata6.php` | **Aktif Beroperasi ✅** |
+| **Lab A** | `ESP32-C5_WeatherStation_LAB_A.ino` | `/WIQHJKEQBPSUML123/datakirim/kirimdata1.php` | Siap Deploy |
+| **Lab B** | `ESP32-C5_WeatherStation_LAB_B.ino` | `/WIQHJKEQBPSUML123/datakirim/kirimdata2.php` | Siap Deploy |
+| **Lab C** | `ESP32-C5_WeatherStation_LAB_C.ino` | `/WIQHJKEQBPSUML123/datakirim/kirimdata3.php` | Siap Deploy |
+| **Lab D** | `ESP32-C5_WeatherStation_LAB_D.ino` | `/WIQHJKEQBPSUML123/datakirim/kirimdata4.php` | Siap Deploy |
+| **Lab E** | `ESP32-C5_WeatherStation_LAB_E.ino` | `/WIQHJKEQBPSUML123/datakirim/kirimdata5.php` | Siap Deploy |
+| **Lab K46** | `ESP32-C5_WeatherStation_LAB_K46-FIX.ino` | `/WIQHJKEQBPSUML123/datakirim/kirimdata6.php` | **Aktif Beroperasi ✅** |
 
 ---
 
