@@ -1,4 +1,3 @@
-
 #define FLUKE_AUTO_PRINT
 
 #include <Wire.h>
@@ -46,7 +45,6 @@ QueueHandle_t httpQueue;
 unsigned long lastSend     = 0;
 unsigned long sendInterval = 5000;
 
-// ─── LCD ──────────────────────────────────────────────────────────────────────
 unsigned long lastLCD     = 0;
 char lcdBuf[2][17]        = {"                ", "                "};
 
@@ -59,10 +57,6 @@ byte barLevel[6][8] = {
   {0x00, 0x00, 0x00, 0x00, 0x1F, 0x1F, 0x1F, 0x1F},
   {0x00, 0x00, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F}
 };
-
-// ─────────────────────────────────────────────────────────────────────────────
-// LCD FUNCTIONS
-// ─────────────────────────────────────────────────────────────────────────────
 
 void initLCD() {
   lcd.init();
@@ -87,7 +81,6 @@ void updateLCD() {
   lastLCD = millis();
   char row[17];
 
-  // ── Row 0: WiFi status + RSSI ─────────────────────────────────────────────
   if (WiFi.status() == WL_CONNECTED) {
     int rssi = WiFi.RSSI();
     int bars = constrain(map(rssi, -90, -30, 0, 5), 0, 5);
@@ -111,9 +104,7 @@ void updateLCD() {
   lcdPrint(1, row);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HTTP TASK (FreeRTOS)
-// ─────────────────────────────────────────────────────────────────────────────
+// HTTP
 
 void httpTask(void* param) {
   HttpPayload p;
@@ -148,9 +139,7 @@ void httpTask(void* param) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// WIFI
-// ─────────────────────────────────────────────────────────────────────────────
+//WiFi
 
 void connectToWiFi() {
   WiFi.disconnect(true);
@@ -188,9 +177,7 @@ void connectToWiFi() {
   while (WiFi.status() != WL_CONNECTED && millis() - start < 30000) delay(500);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FLUKE 1620A — ASCII PARSER
-// ─────────────────────────────────────────────────────────────────────────────
+// FLUKE 1620A
 
 /*
  * Format response Fluke 1620A yang mungkin:
@@ -255,9 +242,7 @@ void parseFlukeResponse(String& line) {
   Serial.printf("[Fluke] Suhu: %.3f°C  RH: %.2f%%\n", suhu, kelembapan);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // GY-801 BMP085 — PRESSURE READER
-// ─────────────────────────────────────────────────────────────────────────────
 
 void readBMP() {
   if (!bmpOK) return;
@@ -334,9 +319,7 @@ void queryFluke() {
 }
 #endif
 
-// ─────────────────────────────────────────────────────────────────────────────
 // SETUP
-// ─────────────────────────────────────────────────────────────────────────────
 
 void setup() {
   Serial.begin(115200);
@@ -347,7 +330,7 @@ void setup() {
   Wire.begin(SDA_PIN, SCL_PIN);
   initLCD();
 
-  // ── Init BMP085 (GY-801) ──────────────────────────────────────────────────
+  // Init BMP085 (GY-801)
   bmpOK = bmp.begin();
   if (bmpOK) {
     Serial.println("[BMP] BMP085/BMP180 ditemukan — OK");
@@ -413,10 +396,7 @@ void setup() {
   Serial.println("\n[Fluke] Menunggu data dari Fluke 1620A DewK...\n");
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LOOP
-// ─────────────────────────────────────────────────────────────────────────────
-
+//loop
 void loop() {
   updateLCD();
 
