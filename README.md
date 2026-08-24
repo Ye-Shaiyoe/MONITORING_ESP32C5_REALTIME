@@ -45,7 +45,7 @@ flowchart LR
         S1[MHB-382SD Multi-Lab]
         S2[Fluke 1620A DewK + GY-801 Lab C]
     end
-    Sensors -->|UART 9600 bps| ESP32[ESP32-C5 RISC-V]
+    Sensors -->|RS-232| ESP32[ESP32-C5 RISC-V]
     ESP32 -->|I2C GPIO 8/9| LCD[LCD 16x2 I2C Display]
     ESP32 -->|WiFi 5GHz / HTTPS| Server[Web Server & Database Dashboard]
 ```
