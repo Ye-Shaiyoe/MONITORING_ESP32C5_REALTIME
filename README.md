@@ -6,8 +6,8 @@
 [![Protocol](https://img.shields.io/badge/Security-HTTPS%20%2F%20TLS-green)](#)
 [![Status](https://img.shields.io/badge/Status-Production%20Ready%20✅-brightgreen)](#)
 
-> **Dokumentasi & Panduan Proyek Migrasi Weather Station Real-Time dari ESP8266 ke ESP32-C5 Dual-Band WiFi 6**
-> UNTUK SELENGKAPNYA ANDA BISA BACA FILE **.doxc** yang telah saya cantumkan
+> **Dokumentasi & Panduan Proyek Migrasi Weather Station Real-Time dari ESP8266 ke ESP32-C5 Dual-Band WiFi 6** </br>
+> UNTUK SELENGKAPNYA ANDA BISA BACA FILE **.doxc** yang telah saya cantumkan </br>
 > Disusun oleh: **M. Yusuf Akram** & **M. Rival** (Siswa PKL — SMK Alfalah, 2026)
 
 ---
